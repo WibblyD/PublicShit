@@ -1,3 +1,6 @@
+#Details taken from the following HASS thread
+#https://community.home-assistant.io/t/vacation-lighting-replay-historical-lighting/282435
+
 blueprint:
   name: Blueprint - Vacation Lighting 
   description: Vacation Lighting - Replay Sensors to Light Behavior
