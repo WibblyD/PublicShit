@@ -1,0 +1,104 @@
+blueprint:
+  name: Blueprint - Vacation Lighting 
+  description: Vacation Lighting - Replay Sensors to Light Behavior
+  domain: automation
+  input:
+    vacation_mode_toggle:
+      name: Vacation Mode - Input Boolean
+      selector:
+        entity:
+          domain: input_boolean
+    default_brightness:
+      name: Default Brightness
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+    replay_sensor_1:
+      name: Replay Sensor (1)
+      selector:
+        entity:
+          domain: sensor
+    light_target_1:
+      name: Light Target (1)
+      selector:
+        entity:
+# Declare blueprint inputs as variables for use in {{templates}}        
+variables:
+  replay_sensor_1: !input replay_sensor_1
+  light_target_1: !input light_target_1
+
+# Automation Mode - Parallel
+mode: parallel
+  
+# Trigger when replay sensor changes state
+trigger:
+  - platform: state
+    entity_id: !input replay_sensor_1
+
+# As long as Vacation Mode is on
+condition:
+  - condition: state
+    entity_id: !input vacation_mode_toggle
+    state: 'on'
+
+
+action:
+  - variables:
+      corresponding_light: >
+        {% if trigger.entity_id == replay_sensor_1 %}
+          {{ light_target_1 }}
+        {% endif %}
+  - choose:
+      # Replay turned on && entity_id is "LIGHT"
+      - conditions:
+          condition: and
+          conditions: 
+            - condition: template
+              value_template: '{{ trigger.to_state.state  == "1" }}'
+            - condition: template
+              value_template: '{{ corresponding_light.split(".")[0] == "light" }}'
+        sequence:
+          - service: light.turn_on
+            data:
+              entity_id: '{{ corresponding_light }}'
+              brightness_pct: !input default_brightness
+          - service: system_log.write
+            data:
+              message: 'Vacation - Replay Lighting (Blueprint): {{trigger.to_state.entity_id}}: turning on: {{ corresponding_light }}'
+              level: info
+
+      # Replay turned on && entity_id is "SWITCH"
+      - conditions:
+          condition: and
+          conditions: 
+            - condition: template
+              value_template: '{{ trigger.to_state.state == "1" }}'
+            - condition: template
+              value_template: '{{ corresponding_light.split(".")[0] == "switch" }}'
+        sequence:
+          - service: switch.turn_on
+            data:
+              entity_id: '{{ corresponding_light }}'
+          - service: system_log.write
+            data:
+              message: 'Vacation - Replay Lighting (Blueprint): {{trigger.to_state.entity_id}}: turning on:{{ corresponding_light }}'
+              level: info
+
+      # Replay turned off
+      - conditions:
+          condition: and
+          conditions: 
+            - condition: template
+              value_template: '{{ trigger.to_state.state == "0" }}'
+        sequence:
+          - service: homeassistant.turn_off
+            data:
+              entity_id: '{{ corresponding_light }}'
+          - service: system_log.write
+            data:
+              message: 'Vacation - Replay Lighting (Blueprint): {{trigger.to_state.entity_id}}: turning off:{{ corresponding_light }}'
+              level: info
